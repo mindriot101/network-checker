@@ -69,9 +69,7 @@ class RunsPing(object):
         self.number = number
 
     @classmethod
-    def perform(
-        cls, host: str = DEFAULT_HOST, number: int = 3
-    ) -> PingSummary:
+    def perform(cls, host: str = DEFAULT_HOST, number: int = 3) -> PingSummary:
         self = cls(host, number)
         return self.run()
 
