@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+
+set -e
+
+VENVDIR=$(pwd)/venv
+VENVPYTHON=${VENVDIR}/bin/python
+
+main() {
+    if [ ! -d ${VENVDIR} ]; then
+        python3 -m venv ${VENVDIR}
+    fi
+
+    ${VENVPYTHON} -m pip install -r devrequirements.txt
+}
+
+main
