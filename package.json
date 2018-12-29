@@ -1,0 +1,8 @@
+{
+  "name": "network-checker",
+  "version": "1.0.0",
+  "main": "index.js",
+  "repository": "git@github.com:mindriot101/network-checker.git",
+  "author": "Simon Walker <s.r.walker101@googlemail.com>",
+  "license": "MIT"
+}

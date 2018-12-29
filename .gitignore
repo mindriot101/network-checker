@@ -4,3 +4,4 @@
 *.db
 build
 *.pyc
+node_modules
