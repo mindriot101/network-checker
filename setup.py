@@ -26,7 +26,7 @@ setup(
     author_email="s.r.walker101@googlemail.com",
     license="MIT",
     packages=[PACKAGE_NAME],
-    install_requires=[],
+    install_requires=["flask"],
     classifiers=[],
     entry_points={
         "console_scripts": ["netcheck-upload = {}.upload:main".format(PACKAGE_NAME)]
