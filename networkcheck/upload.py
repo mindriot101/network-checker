@@ -243,12 +243,15 @@ class Database(object):
             logger.debug("ending transaction %s", transaction_id)
 
 
-def main():
+def main() -> None:
     import argparse
 
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "-o", "--output", required=True, help="Database file to save to"
+    )
+    parser.add_argument(
+        "--host", required=False, default=DEFAULT_HOST, help="Host to check"
     )
     parser.add_argument(
         "-r",
@@ -277,7 +280,7 @@ def main():
         logger.setLevel(logging.DEBUG)
 
     with Database(args.output, clear=args.reset) as database:
-        results = RunsPing.perform(number=args.number)
+        results = RunsPing.perform(host=args.host, number=args.number)
         database.upload_results(results)
 
 

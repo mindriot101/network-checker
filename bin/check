@@ -3,7 +3,7 @@
 set -e
 
 main() {
-    ./venv/bin/mypy --strict ./main.py
+    ./venv/bin/mypy --strict ./networkcheck
 }
 
 main
