@@ -10,11 +10,12 @@ import logging
 import re
 import sqlite3
 
+from .db import Database
+from .types import PingSummary, PingResult, SummaryResult
+
 
 logging.basicConfig(level=logging.WARNING)
 logger = logging.getLogger("networkcheck")
-
-PingSummary = Any  # TODO
 
 
 DEFAULT_HOST = "93.184.216.34"
@@ -36,39 +37,6 @@ SUMMARY_RE = re.compile(
         """,
     re.X,
 )
-
-
-class PingResult(NamedTuple):
-    nbytes: int
-    ip_addr: str
-    icmp_seq: int
-    ttl: int
-    time_ms: float
-
-    @classmethod
-    def from_matchresult(cls, match: Match[str]) -> "PingResult":
-        return cls(
-            nbytes=int(match.group("nbytes")),
-            ip_addr=match.group("ip_addr"),
-            icmp_seq=int(match.group("icmp_seq")),
-            ttl=int(match.group("ttl")),
-            time_ms=float(match.group("time_ms")),
-        )
-
-
-class SummaryResult(NamedTuple):
-    n_transmitted: int
-    n_received: int
-    packet_loss: float
-
-    @classmethod
-    def from_matchresult(cls, match: Match[str]) -> "SummaryResult":
-        n_transmitted = int(match.group("n_transmitted"))
-        n_received = int(match.group("n_received"))
-        packet_loss = float(n_transmitted - n_received) / (n_transmitted)
-        return cls(
-            n_transmitted=n_transmitted, n_received=n_received, packet_loss=packet_loss
-        )
 
 
 class RunsPing(object):
@@ -129,120 +97,6 @@ class RunsPing(object):
         return {"status": "failure"}
 
 
-class Database(object):
-    def __init__(self, filename: str, clear: bool = False):
-        self.filename = filename
-        self.clear = clear
-
-    def __enter__(self) -> "Database":
-        logger.debug("creating database %s", self.filename)
-        self.connection = sqlite3.connect(self.filename)
-        if self.clear:
-            self.reset()
-        self.setup()
-        return self
-
-    def __exit__(self, *args: List[Any]) -> None:
-        self.connection.close()
-
-    def setup(self) -> None:
-        logger.info("initialising database")
-        with self.cursor() as cursor:
-            cursor.execute("PRAGMA foreign_keys = ON")
-            self.create_tables(cursor)
-
-    def reset(self) -> None:
-        logger.info("resetting database")
-        with self.cursor() as cursor:
-            for table_name in "session", "pings", "summary":
-                self.drop_table(cursor, table_name)
-
-    def drop_table(self, cursor: sqlite3.Cursor, table_name: str) -> None:
-        logger.info("dropping table %s", table_name)
-        cursor.execute("""drop table {}""".format(table_name))
-
-    def create_tables(self, cursor: sqlite3.Cursor) -> None:
-        logger.info("creating tables")
-        cursor.execute(
-            """create table if not exists session (
-        id string primary key,
-        created date not null
-        )"""
-        )
-        cursor.execute(
-            """create table if not exists pings (
-        id integer primary key,
-        session_id string not null,
-        nbytes integer not null,
-        ip_addr string not null,
-        icmp_seq integer not null,
-        time_ms real not null,
-        foreign key(session_id) references session(id)
-        )"""
-        )
-        cursor.execute(
-            """create table if not exists summary (
-            id integer primary key,
-            session_id string not null,
-            n_transmitted integer not null,
-            n_received integer not null,
-            packet_loss real not null,
-            foreign key(session_id) references session(id)
-        )"""
-        )
-
-    def upload_results(self, results: PingSummary) -> None:
-        with self.cursor() as cursor:
-            session_id = str(uuid.uuid4())
-            created = datetime.datetime.now()
-
-            # Session
-            logger.info("uploading session")
-            cursor.execute(
-                """insert into session (id, created) values (?, ?)""",
-                (session_id, created),
-            )
-
-            # Pings
-            logger.info("uploading pings")
-            for ping in results["pings"]:
-                cursor.execute(
-                    """insert into pings (session_id, nbytes,
-                        ip_addr, icmp_seq, time_ms) values (?, ?, ?, ?,
-                        ?)""",
-                    (
-                        session_id,
-                        ping.nbytes,
-                        ping.ip_addr,
-                        ping.icmp_seq,
-                        ping.time_ms,
-                    ),
-                )
-
-            # Summary
-            summary = results["summary"]
-            logger.info("uploading summary")
-            cursor.execute(
-                """insert into summary (session_id, n_transmitted,
-                    n_received, packet_loss) values (?, ?, ?, ?)""",
-                (
-                    session_id,
-                    summary.n_transmitted,
-                    summary.n_received,
-                    summary.packet_loss,
-                ),
-            )
-
-    @contextmanager
-    def cursor(self) -> Generator[sqlite3.Cursor, None, None]:
-        transaction_id = uuid.uuid4()
-        logger.debug("starting transaction %s", transaction_id)
-        with self.connection as conn:
-            cursor = conn.cursor()
-            yield cursor
-            logger.debug("ending transaction %s", transaction_id)
-
-
 def main() -> None:
     import argparse
 
@@ -279,7 +133,7 @@ def main() -> None:
     elif args.verbose > 1:
         logger.setLevel(logging.DEBUG)
 
-    with Database(args.output, clear=args.reset) as database:
+    with Database(logger, args.output, clear=args.reset) as database:
         results = RunsPing.perform(host=args.host, number=args.number)
         database.upload_results(results)
 
