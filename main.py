@@ -2,8 +2,11 @@
 
 
 import subprocess as sp
-from typing import Dict, Match, NamedTuple, Union, List, Any
+from typing import Dict, Match, NamedTuple, Union, List, Any, Optional
+import datetime
+import uuid
 import re
+import sqlite3
 
 
 PingSummary = Any  # TODO
@@ -107,11 +110,65 @@ class RunsPing(object):
                     )
                 summary_result = SummaryResult.from_matchresult(match)
 
-        return {"pings": ping_results, "summary": summary_result}
+        return {"status": "success", "pings": ping_results, "summary": summary_result}
 
     def failed_pings(self, p: sp.CompletedProcess) -> PingSummary:
-        return {}
+        return {"status": "failure"}
 
 
-results = RunsPing.perform(number=2)
-print(results)
+class Database(object):
+    def __init__(self, filename: str):
+        self.filename = filename
+
+    def __enter__(self) -> "Database":
+        self.connection = sqlite3.connect(self.filename)
+        self.setup()
+        return self
+
+    def __exit__(self, *args: List[Any]) -> None:
+        self.connection.close()
+
+    def setup(self) -> None:
+        with self.connection as conn:
+            cursor = conn.cursor()
+
+            self.create_tables(cursor)
+
+    def create_tables(self, cursor: sqlite3.Cursor) -> None:
+        cursor.execute(
+            """create table if not exists session (
+        session_id string primary key,
+        created date not null
+        )"""
+        )
+        cursor.execute(
+            """create table if not exists pings (
+        id integer primary key,
+        session_id string not null,
+        nbytes integer not null,
+        ip_addr string not null,
+        icmp_seq integer not null,
+        time_ms real not null
+        )"""
+        )
+        cursor.execute(
+            """create table if not exists summary (
+            id integer primary key,
+            session_id string not null,
+            n_transmitted integer not null,
+            n_received integer not null,
+            packet_loss real not null
+        )"""
+        )
+
+    def upload_results(self, results: PingSummary) -> None:
+        session_id = uuid.uuid4()
+        created_time = datetime.datetime.now().timestamp()
+        with self.connection as conn:
+            cursor = conn.cursor()
+        print(results)
+
+
+with Database("results.db") as database:
+    results = RunsPing.perform(number=1)
+    database.upload_results(results)
