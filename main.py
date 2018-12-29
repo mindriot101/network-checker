@@ -2,8 +2,9 @@
 
 
 import subprocess as sp
-from typing import Dict, Match, NamedTuple, Union, List, Any, Optional
+from typing import Dict, Match, NamedTuple, Union, List, Any, Optional, Generator
 import datetime
+from contextlib import contextmanager
 import uuid
 import re
 import sqlite3
@@ -117,11 +118,14 @@ class RunsPing(object):
 
 
 class Database(object):
-    def __init__(self, filename: str):
+    def __init__(self, filename: str, clear: bool = False):
         self.filename = filename
+        self.clear = clear
 
     def __enter__(self) -> "Database":
         self.connection = sqlite3.connect(self.filename)
+        if self.clear:
+            self.reset()
         self.setup()
         return self
 
@@ -129,15 +133,22 @@ class Database(object):
         self.connection.close()
 
     def setup(self) -> None:
-        with self.connection as conn:
-            cursor = conn.cursor()
-
+        with self.cursor() as cursor:
+            cursor.execute("PRAGMA foreign_keys = ON")
             self.create_tables(cursor)
+
+    def reset(self) -> None:
+        with self.cursor() as cursor:
+            for table_name in "session", "pings", "summary":
+                self.drop_table(cursor, table_name)
+
+    def drop_table(self, cursor: sqlite3.Cursor, table_name: str) -> None:
+        cursor.execute("""drop table {}""".format(table_name))
 
     def create_tables(self, cursor: sqlite3.Cursor) -> None:
         cursor.execute(
             """create table if not exists session (
-        session_id string primary key,
+        id string primary key,
         created date not null
         )"""
         )
@@ -148,7 +159,8 @@ class Database(object):
         nbytes integer not null,
         ip_addr string not null,
         icmp_seq integer not null,
-        time_ms real not null
+        time_ms real not null,
+        foreign key(session_id) references session(id)
         )"""
         )
         cursor.execute(
@@ -157,18 +169,57 @@ class Database(object):
             session_id string not null,
             n_transmitted integer not null,
             n_received integer not null,
-            packet_loss real not null
+            packet_loss real not null,
+            foreign key(session_id) references session(id)
         )"""
         )
 
     def upload_results(self, results: PingSummary) -> None:
-        session_id = uuid.uuid4()
-        created_time = datetime.datetime.now().timestamp()
+        with self.cursor() as cursor:
+            session_id = str(uuid.uuid4())
+            created = datetime.datetime.now()
+
+            # Session
+            cursor.execute(
+                """insert into session (id, created) values (?, ?)""",
+                (session_id, created),
+            )
+
+            # Pings
+            for ping in results["pings"]:
+                cursor.execute(
+                    """insert into pings (session_id, nbytes,
+                        ip_addr, icmp_seq, time_ms) values (?, ?, ?, ?,
+                        ?)""",
+                    (
+                        session_id,
+                        ping.nbytes,
+                        ping.ip_addr,
+                        ping.icmp_seq,
+                        ping.time_ms,
+                    ),
+                )
+
+            # Summary
+            summary = results["summary"]
+            cursor.execute(
+                """insert into summary (session_id, n_transmitted,
+                    n_received, packet_loss) values (?, ?, ?, ?)""",
+                (
+                    session_id,
+                    summary.n_transmitted,
+                    summary.n_received,
+                    summary.packet_loss,
+                ),
+            )
+
+    @contextmanager
+    def cursor(self) -> Generator[sqlite3.Cursor, None, None]:
         with self.connection as conn:
             cursor = conn.cursor()
-        print(results)
+            yield cursor
 
 
-with Database("results.db") as database:
-    results = RunsPing.perform(number=1)
+with Database("results.db", clear=True) as database:
+    results = RunsPing.perform()
     database.upload_results(results)
