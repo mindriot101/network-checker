@@ -6,9 +6,13 @@ from typing import Dict, Match, NamedTuple, Union, List, Any, Optional, Generato
 import datetime
 from contextlib import contextmanager
 import uuid
+import logging
 import re
 import sqlite3
 
+
+logging.basicConfig(level=logging.WARNING)
+logger = logging.getLogger("networkcheck")
 
 PingSummary = Any  # TODO
 
@@ -69,16 +73,19 @@ class SummaryResult(NamedTuple):
 
 class RunsPing(object):
     def __init__(self, host: str = DEFAULT_HOST, number: int = 3):
+        logger.debug("creating RunsPing host=%s number=%s", host, number)
         self.host = host
         self.number = number
 
     @classmethod
     def perform(cls, host: str = DEFAULT_HOST, number: int = 3) -> PingSummary:
+        logger.info("running ping test")
         self = cls(host, number)
         return self.run()
 
     def run(self) -> PingSummary:
         cmd = ["ping", "-c", str(self.number), self.host]
+        logger.info("running command %s", cmd)
         result = sp.run(cmd, capture_output=True)
         if result.returncode == 0:
             return self.successful_pings(result)
@@ -86,6 +93,7 @@ class RunsPing(object):
             return self.failed_pings(result)
 
     def successful_pings(self, p: sp.CompletedProcess) -> PingSummary:
+        logger.info("successful ping")
         stdout = p.stdout.decode()
         ping_results = []
         summary_result = None
@@ -95,21 +103,25 @@ class RunsPing(object):
 
             # parse the data transmission rate lines
             if "bytes from" in line:
+                logger.debug("found data transmission line")
                 match = DATA_TRANSMISSION_RE.match(line)
                 if not match:
                     raise ValueError(
                         "non-matching line for data transmission line: {}".format(line)
                     )
                 ping_result = PingResult.from_matchresult(match)
+                logger.debug("ping result: %s", ping_result)
                 ping_results.append(ping_result)
 
             elif "packets transmitted" in line:
+                logger.debug("found summary line")
                 match = SUMMARY_RE.match(line)
                 if not match:
                     raise ValueError(
                         "non-matching line for summary line: {}".format(line)
                     )
                 summary_result = SummaryResult.from_matchresult(match)
+                logger.debug("summary result: %s", summary_result)
 
         return {"status": "success", "pings": ping_results, "summary": summary_result}
 
@@ -123,6 +135,7 @@ class Database(object):
         self.clear = clear
 
     def __enter__(self) -> "Database":
+        logger.debug("creating database %s", self.filename)
         self.connection = sqlite3.connect(self.filename)
         if self.clear:
             self.reset()
@@ -133,19 +146,23 @@ class Database(object):
         self.connection.close()
 
     def setup(self) -> None:
+        logger.info("initialising database")
         with self.cursor() as cursor:
             cursor.execute("PRAGMA foreign_keys = ON")
             self.create_tables(cursor)
 
     def reset(self) -> None:
+        logger.info("resetting database")
         with self.cursor() as cursor:
             for table_name in "session", "pings", "summary":
                 self.drop_table(cursor, table_name)
 
     def drop_table(self, cursor: sqlite3.Cursor, table_name: str) -> None:
+        logger.info("dropping table %s", table_name)
         cursor.execute("""drop table {}""".format(table_name))
 
     def create_tables(self, cursor: sqlite3.Cursor) -> None:
+        logger.info("creating tables")
         cursor.execute(
             """create table if not exists session (
         id string primary key,
@@ -180,12 +197,14 @@ class Database(object):
             created = datetime.datetime.now()
 
             # Session
+            logger.info("uploading session")
             cursor.execute(
                 """insert into session (id, created) values (?, ?)""",
                 (session_id, created),
             )
 
             # Pings
+            logger.info("uploading pings")
             for ping in results["pings"]:
                 cursor.execute(
                     """insert into pings (session_id, nbytes,
@@ -202,6 +221,7 @@ class Database(object):
 
             # Summary
             summary = results["summary"]
+            logger.info("uploading summary")
             cursor.execute(
                 """insert into summary (session_id, n_transmitted,
                     n_received, packet_loss) values (?, ?, ?, ?)""",
@@ -215,9 +235,12 @@ class Database(object):
 
     @contextmanager
     def cursor(self) -> Generator[sqlite3.Cursor, None, None]:
+        transaction_id = uuid.uuid4()
+        logger.debug("starting transaction %s", transaction_id)
         with self.connection as conn:
             cursor = conn.cursor()
             yield cursor
+            logger.debug("ending transaction %s", transaction_id)
 
 
 def main():
@@ -241,7 +264,17 @@ def main():
         type=int,
         help="Number of pings to perform for test",
     )
+    parser.add_argument(
+        "-v", "--verbose", action="count", default=0, help="More verbose logging"
+    )
     args = parser.parse_args()
+
+    if args.verbose == 0:
+        pass
+    elif args.verbose == 1:
+        logger.setLevel(logging.INFO)
+    elif args.verbose > 1:
+        logger.setLevel(logging.DEBUG)
 
     with Database(args.output, clear=args.reset) as database:
         results = RunsPing.perform(number=args.number)
