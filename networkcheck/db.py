@@ -5,20 +5,60 @@ import uuid
 import datetime
 from contextlib import contextmanager
 from .types import PingSummary
+import math
+
+
+def std(*values):
+    n = len(values)
+    if n == 0:
+        return 0.
+
+    meanval = 0.
+    for val in values:
+        meanval += val
+    meanval /= n
+
+    stdval = 0.
+    for val in values:
+        stdval += ((val - meanval) ** 2)
+    return math.sqrt(stdval / n)
+
+
+class Std(object):
+    def __init__(self):
+        self.values = []
+
+    def step(self, value):
+        self.values.append(value)
+
+    def finalize(self):
+        result = std(*self.values)
+        print(result)
+        return result
 
 
 class Database(object):
-    def __init__(self, logger: logging.Logger, filename: str, clear: bool = False):
+    def __init__(
+        self,
+        logger: logging.Logger,
+        filename: str,
+        clear: bool = False,
+        create: bool = True,
+    ):
         self.logger = logger
         self.filename = filename
         self.clear = clear
+        self.create = create
 
     def __enter__(self) -> "Database":
         self.logger.debug("creating database %s", self.filename)
         self.connection = sqlite3.connect(self.filename)
         if self.clear:
             self.reset()
-        self.setup()
+        if self.create:
+            self.setup()
+        self.connection.create_function("sqrt", 1, math.sqrt)
+        self.connection.create_aggregate("std", 1, Std)
         return self
 
     def __exit__(self, *args: List[Any]) -> None:
@@ -45,7 +85,7 @@ class Database(object):
         cursor.execute(
             """create table if not exists session (
         id string primary key,
-        created date not null
+        created integer not null
         )"""
         )
         cursor.execute(
@@ -79,7 +119,7 @@ class Database(object):
             self.logger.info("uploading session")
             cursor.execute(
                 """insert into session (id, created) values (?, ?)""",
-                (session_id, created),
+                (session_id, created.timestamp()),
             )
 
             # Pings
@@ -111,6 +151,37 @@ class Database(object):
                     summary.packet_loss,
                 ),
             )
+
+    def response_times(self) -> Any:
+        with self.cursor() as cursor:
+            cursor.execute(
+                """select created, avg(time_ms), std(time_ms) / sqrt(count(time_ms)) as std_err
+                    from pings
+                    join session on (pings.session_id = session.id)
+                    group by pings.session_id
+                    order by created asc
+                    """
+            )
+            return cursor.fetchall()
+
+    def gaps(self) -> Any:
+        with self.cursor() as cursor:
+            cursor.execute(
+                """select distinct(created) from session
+                    order by created asc
+                    """
+            )
+            results = cursor.fetchall()
+
+        out = []
+        current = results[0][0]
+        for t in results[1:]:
+            dt = t[0] - current
+            out.append((t[0], dt))
+            current = t[0]
+
+        return out
+
 
     @contextmanager
     def cursor(self) -> Generator[sqlite3.Cursor, None, None]:
