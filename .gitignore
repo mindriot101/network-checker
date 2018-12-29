@@ -2,3 +2,5 @@
 **/*.rs.bk
 .mypy_cache
 *.db
+build
+*.pyc
