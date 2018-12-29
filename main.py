@@ -220,6 +220,33 @@ class Database(object):
             yield cursor
 
 
-with Database("results.db", clear=True) as database:
-    results = RunsPing.perform()
-    database.upload_results(results)
+def main():
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "-o", "--output", required=True, help="Database file to save to"
+    )
+    parser.add_argument(
+        "-r",
+        "--reset",
+        default=False,
+        action="store_true",
+        help="Reset the database before creating",
+    )
+    parser.add_argument(
+        "-n",
+        "--number",
+        default=3,
+        type=int,
+        help="Number of pings to perform for test",
+    )
+    args = parser.parse_args()
+
+    with Database(args.output, clear=args.reset) as database:
+        results = RunsPing.perform(number=args.number)
+        database.upload_results(results)
+
+
+if __name__ == "__main__":
+    main()
