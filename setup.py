@@ -29,6 +29,9 @@ setup(
     install_requires=["flask"],
     classifiers=[],
     entry_points={
-        "console_scripts": ["netcheck-upload = {}.upload:main".format(PACKAGE_NAME)]
+        "console_scripts": [
+            "netcheck-upload = {}.upload:main".format(PACKAGE_NAME),
+            "netcheck-server = {}.server:main".format(PACKAGE_NAME),
+        ]
     },
 )
