@@ -33,7 +33,6 @@ class Std(object):
 
     def finalize(self):
         result = std(*self.values)
-        print(result)
         return result
 
 
