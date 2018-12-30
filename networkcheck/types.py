@@ -4,13 +4,19 @@ from typing import Any, NamedTuple, Match
 PingSummary = Any  # TODO
 
 
-class PingResult(NamedTuple):
-    nbytes: int
-    ip_addr: str
-    icmp_seq: int
-    ttl: int
-    time_ms: float
+PingResultBase = NamedTuple(
+    "PingResultBase",
+    [
+        ("nbytes", int),
+        ("ip_addr", str),
+        ("icmp_seq", int),
+        ("ttl", int),
+        ("time_ms", int),
+    ],
+)
 
+
+class PingResult(PingResultBase):
     @classmethod
     def from_matchresult(cls, match: Match[str]) -> "PingResult":
         return cls(
@@ -22,11 +28,13 @@ class PingResult(NamedTuple):
         )
 
 
-class SummaryResult(NamedTuple):
-    n_transmitted: int
-    n_received: int
-    packet_loss: float
+SummaryResultBase = NamedTuple(
+    "SummaryResultBase",
+    [("n_transmitted", int), ("n_received", int), ("packet_loss", float)],
+)
 
+
+class SummaryResult(SummaryResultBase):
     @classmethod
     def from_matchresult(cls, match: Match[str]) -> "SummaryResult":
         n_transmitted = int(match.group("n_transmitted"))
