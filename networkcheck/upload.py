@@ -54,7 +54,7 @@ class RunsPing(object):
     def run(self) -> PingSummary:
         cmd = ["ping", "-c", str(self.number), self.host]
         logger.info("running command %s", cmd)
-        result = sp.run(cmd, capture_output=True)
+        result = sp.run(cmd, stdout=sp.PIPE)
         if result.returncode == 0:
             return self.successful_pings(result)
         else:
