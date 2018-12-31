@@ -10,7 +10,7 @@ DATA_TRANSMISSION_RE = re.compile(
          (?P<ip_addr>(\d{1,3}\.){3}\d{1,3}):\s+
          icmp_seq=(?P<icmp_seq>\d+)\s+
          ttl=(?P<ttl>\d+)\s+
-         time=(?P<time_ms>\d+\.\d+)\s+ms$
+         time=(?P<time_ms>\d+(\.\d+)?)\s+ms$
          """,
     re.X,
 )
