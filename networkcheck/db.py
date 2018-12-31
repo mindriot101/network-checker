@@ -1,10 +1,10 @@
 from typing import List, Any, Generator
-import logging
 import sqlite3
 import uuid
 import datetime
 from contextlib import contextmanager
 from .types import PingSummary
+from .logging import logger
 import math
 
 
@@ -39,18 +39,16 @@ class Std(object):
 class Database(object):
     def __init__(
         self,
-        logger: logging.Logger,
         filename: str,
         clear: bool = False,
         create: bool = True,
     ):
-        self.logger = logger
         self.filename = filename
         self.clear = clear
         self.create = create
 
     def __enter__(self) -> "Database":
-        self.logger.debug("creating database %s", self.filename)
+        logger.debug("creating database %s", self.filename)
         self.connection = sqlite3.connect(self.filename)
         if self.clear:
             self.reset()
@@ -64,23 +62,23 @@ class Database(object):
         self.connection.close()
 
     def setup(self) -> None:
-        self.logger.info("initialising database")
+        logger.info("initialising database")
         with self.cursor() as cursor:
             cursor.execute("PRAGMA foreign_keys = ON")
             self.create_tables(cursor)
 
     def reset(self) -> None:
-        self.logger.info("resetting database")
+        logger.info("resetting database")
         with self.cursor() as cursor:
             for table_name in "session", "pings", "summary":
                 self.drop_table(cursor, table_name)
 
     def drop_table(self, cursor: sqlite3.Cursor, table_name: str) -> None:
-        self.logger.info("dropping table %s", table_name)
+        logger.info("dropping table %s", table_name)
         cursor.execute("""drop table {}""".format(table_name))
 
     def create_tables(self, cursor: sqlite3.Cursor) -> None:
-        self.logger.info("creating tables")
+        logger.info("creating tables")
         cursor.execute(
             """create table if not exists session (
         id string primary key,
@@ -115,14 +113,14 @@ class Database(object):
             created = datetime.datetime.now()
 
             # Session
-            self.logger.info("uploading session")
+            logger.info("uploading session")
             cursor.execute(
                 """insert into session (id, created) values (?, ?)""",
                 (session_id, created.timestamp()),
             )
 
             # Pings
-            self.logger.info("uploading pings")
+            logger.info("uploading pings")
             for ping in results["pings"]:
                 cursor.execute(
                     """insert into pings (session_id, nbytes,
@@ -139,7 +137,7 @@ class Database(object):
 
             # Summary
             summary = results["summary"]
-            self.logger.info("uploading summary")
+            logger.info("uploading summary")
             cursor.execute(
                 """insert into summary (session_id, n_transmitted,
                     n_received, packet_loss) values (?, ?, ?, ?)""",
@@ -185,8 +183,8 @@ class Database(object):
     @contextmanager
     def cursor(self) -> Generator[sqlite3.Cursor, None, None]:
         transaction_id = uuid.uuid4()
-        self.logger.debug("starting transaction %s", transaction_id)
+        logger.debug("starting transaction %s", transaction_id)
         with self.connection as conn:
             cursor = conn.cursor()
             yield cursor
-            self.logger.debug("ending transaction %s", transaction_id)
+            logger.debug("ending transaction %s", transaction_id)

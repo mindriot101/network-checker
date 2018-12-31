@@ -11,7 +11,7 @@ PingResultBase = NamedTuple(
         ("ip_addr", str),
         ("icmp_seq", int),
         ("ttl", int),
-        ("time_ms", int),
+        ("time_ms", float),
     ],
 )
 
