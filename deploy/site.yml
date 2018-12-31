@@ -49,7 +49,7 @@
         name: "{{ DEPLOY_DIR }}"
         virtualenv: "{{ VENV_DIR }}"
         virtualenv_command: /usr/bin/python3.5 -m venv
-        state: forcereinstall
+        editable: yes
       become: yes
 
     - name: Ensure the correct ownership of deploy dir
