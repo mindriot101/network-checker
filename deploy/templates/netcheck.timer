@@ -2,7 +2,7 @@
 Description=Run netcheck regularly
 
 [Timer]
-OnUnitActiveSec=10m
+OnCalendar=*:0/10
 
 [Install]
 WantedBy=timers.target

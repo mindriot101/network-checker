@@ -1,0 +1,7 @@
+[Unit]
+Description=Netcheck web server
+After=network.target
+
+[Service]
+ExecStart={{ VENV_DIR }}/bin/netcheck-server --db {{ DEPLOY_DIR }}/netcheck.db --port 5002 --host 0.0.0.0
+User={{ DEPLOY_USER }}

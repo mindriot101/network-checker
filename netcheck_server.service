@@ -1,6 +1,0 @@
-[Unit]
-Description=Netcheck web server
-After=network.target
-
-[Service]
-ExecStart=/var/netcheck/venv/bin/netcheckserver --db /var/netcheck/netcheck.db --port 5000 --host 127.0.0.1

@@ -1,7 +1,0 @@
-[Unit]
-Description=Check network connectivity
-
-[Service]
-Type=oneshot
-ExecStart=/var/netcheck/venv/bin/netcheck-upload --output /var/netcheck/netcheck.db --verbose
-

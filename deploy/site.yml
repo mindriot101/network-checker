@@ -1,0 +1,109 @@
+---
+- hosts: all
+  vars:
+    DEPLOY_USER: netcheck
+    DEPLOY_GROUP: netcheck
+    DEPLOY_DIR: /var/netcheck
+    VENV_DIR: "{{ DEPLOY_DIR }}/venv"
+    DEPLOY_REPO: https://github.com/mindriot101/network-checker
+  tasks:
+    - name: Create the deploy group
+      group:
+        name: "{{ DEPLOY_GROUP }}"
+        state: present
+      become: yes
+
+    - name: Create the deploy user
+      user:
+        name: "{{ DEPLOY_USER }}"
+        state: present
+        groups: "{{ DEPLOY_GROUP }}"
+        append: yes
+        create_home: no
+        shell: /bin/bash
+      become: yes
+
+    - name: Install python
+      apt:
+        name: ["python3-dev", "python3-pip", "python3-venv", "python-setuptools"]
+        state: present
+      become: yes
+
+    - name: Clone the source to the deploy directory
+      git:
+        repo: "{{ DEPLOY_REPO }}"
+        dest: "{{ DEPLOY_DIR }}"
+        update: yes
+        force: yes
+      become: yes
+
+    - name: Create the virtual environment
+      pip:
+        requirements: "{{ DEPLOY_DIR }}/requirements.txt"
+        virtualenv: "{{ VENV_DIR }}"
+        virtualenv_command: /usr/bin/python3.5 -m venv
+      become: yes
+
+    - name: Install the deployed package
+      pip:
+        name: "{{ DEPLOY_DIR }}"
+        virtualenv: "{{ VENV_DIR }}"
+        virtualenv_command: /usr/bin/python3.5 -m venv
+        state: forcereinstall
+      become: yes
+
+    - name: Ensure the correct ownership of deploy dir
+      file:
+        path: "{{ DEPLOY_DIR }}"
+        state: directory
+        owner: "{{ DEPLOY_USER }}"
+        recurse: yes
+        group: root
+      become: yes
+
+    - name: Copy the systemd netcheck template
+      template:
+        src: netcheck.service
+        dest: /etc/systemd/system/netcheck.service
+        owner: root
+        group: root
+      become: yes
+
+    - name: Copy the systemd netcheck timer template
+      template:
+        src: netcheck.timer
+        dest: /etc/systemd/system/netcheck.timer
+        owner: root
+        group: root
+      become: yes
+
+    - name: Copy the systemd netcheck server template
+      template:
+        src: netcheck_server.service
+        dest: /etc/systemd/system/netcheck_server.service
+        owner: root
+        group: root
+      become: yes
+
+    - name: Enable the service
+      systemd:
+        daemon_reload: yes
+        name: "netcheck.service"
+        enabled: yes
+      become: yes
+
+    - name: Start the timer
+      systemd:
+        daemon_reload: yes
+        name: "netcheck.timer"
+        state: restarted
+        enabled: yes
+      become: yes
+
+    - name: Start the server
+      systemd:
+        daemon_reload: yes
+        name: "netcheck_server.service"
+        state: restarted
+        enabled: yes
+      become: yes
