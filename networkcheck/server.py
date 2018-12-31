@@ -31,12 +31,12 @@ def main() -> None:
 
     @app.route("/api/responsetimes")
     def response_times():
-        with Database(logger, args.db, clear=False, create=False) as db:
+        with Database(args.db, clear=False, create=False) as db:
             return jsonify(results=db.response_times())
 
     @app.route("/api/gaps")
     def gaps():
-        with Database(logger, args.db, clear=False, create=False) as db:
+        with Database(args.db, clear=False, create=False) as db:
             return jsonify(results=db.gaps())
 
 

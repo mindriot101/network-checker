@@ -3,4 +3,5 @@ Description=Netcheck web server
 After=network.target
 
 [Service]
-ExecStart=/var/netcheck/venv/bin/netcheckserver --db /var/netcheck/netcheck.db --port 5000 --host 127.0.0.1
+ExecStart={{ VENV_DIR }}/bin/netcheck-server --db {{ DEPLOY_DIR }}/netcheck.db --port 5002 --host 0.0.0.0
+User={{ DEPLOY_USER }}

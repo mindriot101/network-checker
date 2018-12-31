@@ -3,5 +3,5 @@ Description=Check network connectivity
 
 [Service]
 Type=oneshot
-ExecStart=/var/netcheck/venv/bin/netcheck-upload --output /var/netcheck/netcheck.db --verbose
-
+ExecStart={{ VENV_DIR }}/bin/netcheck-upload --output {{ DEPLOY_DIR }}/netcheck.db --verbose
+User={{ DEPLOY_USER }}
