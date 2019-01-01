@@ -4,7 +4,7 @@ window.onload = () => {
 };
 
 function plotResponseTimes() {
-  fetch("/api/responsetimes")
+  fetch("api/responsetimes")
     .then(response => {
       if (!response.ok) {
         throw new Error("Error fetching data");
@@ -60,7 +60,7 @@ function plotResponseTimes() {
 }
 
 function plotGaps() {
-  fetch("/api/gaps")
+  fetch("api/gaps")
     .then(response => {
       if (!response.ok) {
         throw new Error("Error fetching data");
