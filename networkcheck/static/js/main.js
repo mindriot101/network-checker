@@ -12,8 +12,8 @@ function plotResponseTimes() {
       return response.json()
     })
     .then(results => {
-      const meanvals = results.results.map(e => [e[0], e[1]]);
-      const errors = results.results.map(e => [e[0], e[1] - e[2] / 2, e[1] + e[2] / 2]);
+      const meanvals = results.results.map(e => [e[0] * 1000, e[1]]);
+      const errors = results.results.map(e => [e[0] * 1000, e[1] - e[2] / 2, e[1] + e[2] / 2]);
 
       const plotdata = {
         title: {
