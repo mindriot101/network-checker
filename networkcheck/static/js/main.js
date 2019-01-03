@@ -45,11 +45,13 @@ function plotResponseTimes() {
         plotOptions: {
           spline: {
             color: "#86AEDB",
+            animation: 0,
           },
           errorbar: {
             whiskerLength: 0,
             stemWidth: 3,
             color: "#86AEDB",
+            animation: 0,
           },
         },
       };
@@ -97,6 +99,7 @@ function plotGaps() {
         plotOptions: {
           scatter: {
             color: "#86AEDB",
+            animation: 0,
           },
         },
       };
