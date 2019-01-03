@@ -68,7 +68,7 @@ function plotGaps() {
       return response.json()
     })
     .then(results => {
-      const gaps = results.results;
+      const gaps = results.results.map(e => [e[0] * 1000, e[1]]);
 
       const plotdata = {
         chart: {
