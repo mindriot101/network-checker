@@ -56,6 +56,8 @@ def main() -> None:
     parser.add_argument("--host", required=False, default="127.0.0.1")
     parser.add_argument("--port", required=False, default=5000, type=int)
     parser.add_argument("--debug", action="store_true", default=False)
+    parser.add_argument("-l", "--limit", help="Limit number of shown data points to `n`",
+            required=False, type=int, default=2880)
     args = parser.parse_args()
 
     app = Flask("netcheck", template_folder=TEMPLATE_DIR, static_folder=STATIC_DIR)
@@ -70,9 +72,19 @@ def main() -> None:
         with Database(args.db, clear=False, create=False) as db:
             return jsonify(results=db.response_times())
 
+    @app.route("/api/responsetimes/latest")
+    def response_times_limited():
+        with Database(args.db, clear=False, create=False) as db:
+            return jsonify(results=db.response_times(limit=args.limit))
+
     @app.route("/api/gaps")
     def gaps():
         with Database(args.db, clear=False, create=False) as db:
             return jsonify(results=db.gaps())
+
+    @app.route("/api/gaps/latest")
+    def gaps_limited():
+        with Database(args.db, clear=False, create=False) as db:
+            return jsonify(results=db.gaps(limit=args.limit))
 
     app.run(host=args.host, debug=args.debug, port=args.port)

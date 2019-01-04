@@ -11,16 +11,16 @@ import math
 def std(*values):
     n = len(values)
     if n == 0:
-        return 0.
+        return 0.0
 
-    meanval = 0.
+    meanval = 0.0
     for val in values:
         meanval += val
     meanval /= n
 
-    stdval = 0.
+    stdval = 0.0
     for val in values:
-        stdval += ((val - meanval) ** 2)
+        stdval += (val - meanval) ** 2
     return math.sqrt(stdval / n)
 
 
@@ -37,12 +37,7 @@ class Std(object):
 
 
 class Database(object):
-    def __init__(
-        self,
-        filename: str,
-        clear: bool = False,
-        create: bool = True,
-    ):
+    def __init__(self, filename: str, clear: bool = False, create: bool = True):
         self.filename = filename
         self.clear = clear
         self.create = create
@@ -149,25 +144,31 @@ class Database(object):
                 ),
             )
 
-    def response_times(self) -> Any:
+    def response_times(self, limit: int = None) -> Any:
         with self.cursor() as cursor:
-            cursor.execute(
-                """select created, avg(time_ms), std(time_ms) / sqrt(count(time_ms)) as std_err
+            query = """
+            select created, avg(time_ms), std(time_ms) / sqrt(count(time_ms)) as std_err
                     from pings
                     join session on (pings.session_id = session.id)
                     group by pings.session_id
                     order by created asc
                     """
-            )
+            if limit is not None:
+                query += "limit {}".format(int(limit))
+
+            cursor.execute(query)
             return cursor.fetchall()
 
-    def gaps(self) -> Any:
+    def gaps(self, limit: int = None) -> Any:
         with self.cursor() as cursor:
-            cursor.execute(
-                """select distinct(created) from session
+            query = """
+            select distinct(created) from session
                     order by created asc
                     """
-            )
+            if limit is not None:
+                query += "limit {}".format(int(limit))
+
+            cursor.execute(query)
             results = cursor.fetchall()
 
         out = []
@@ -178,7 +179,6 @@ class Database(object):
             current = t[0]
 
         return out
-
 
     @contextmanager
     def cursor(self) -> Generator[sqlite3.Cursor, None, None]:
