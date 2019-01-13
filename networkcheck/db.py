@@ -163,7 +163,7 @@ class Database(object):
         with self.cursor() as cursor:
             query = """
             select distinct(created) from session
-                    order by created asc
+                    order by created desc
                     """
             if limit is not None:
                 query += "limit {}".format(int(limit))
