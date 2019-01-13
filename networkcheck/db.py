@@ -151,7 +151,7 @@ class Database(object):
                     from pings
                     join session on (pings.session_id = session.id)
                     group by pings.session_id
-                    order by created asc
+                    order by created desc
                     """
             if limit is not None:
                 query += "limit {}".format(int(limit))
